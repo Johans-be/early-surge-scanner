@@ -68,10 +68,9 @@ def fetch_data(ticker):
 
 for stock in symbols:
     df = fetch_data(stock)
-    if df.empty:
-        st.warning(f"No data for {stock}")
-        continue
-
+    if df.empty or 'Close' not in df.columns:
+    st.warning(f"{stock} skipped due to insufficient intraday data.")
+    continue
     try:
         # Basic calculations
         open_price = float(df['Open'].iloc[0])
@@ -94,7 +93,11 @@ for stock in symbols:
 
     col = st.container()
     col.subheader(f"📊 {stock}")
+    if 'Close' in df.columns and 'VWMA' in df.columns:
     col.line_chart(df[['Close', 'VWMA']].dropna())
+else:
+    col.warning(f"⚠️ Not enough data to chart {stock}.")
+
 
     last_vwma = df['VWMA'].iloc[-1]
     last_macd = df['MACD'].iloc[-1]
