@@ -72,12 +72,16 @@ for stock in symbols:
         st.warning(f"No data for {stock}")
         continue
 
-    open_price = df['Open'].iloc[0]
-    latest_price = df['Close'].iloc[-1]
-    percent_change = ((latest_price - open_price) / open_price) * 100
+    try:
+        open_price = float(df['Open'].iloc[0])
+        latest_price = float(df['Close'].iloc[-1])
+        percent_change = ((latest_price - open_price) / open_price) * 100
 
-    average_volume = df['Volume'].mean()
-    latest_volume = df['Volume'].iloc[-1]
+        average_volume = float(df['Volume'].mean())
+        latest_volume = float(df['Volume'].iloc[-1])
+    except Exception as e:
+        st.error(f"Data error for {stock}: {e}")
+        continue
 
     col = st.container()
     col.subheader(f"📊 {stock}")
