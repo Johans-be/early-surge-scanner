@@ -9,13 +9,13 @@ import smtplib
 from email.message import EmailMessage
 
 st.set_page_config(page_title="Early Surge Stock Scanner", layout="wide")
-st.title("📈 Early Surge Stock Scanner")
+st.title("📈 Enhanced Early Surge Stock Scanner")
 
 # 🔄 Auto-refresh every 60 seconds
 st_autorefresh(interval=60 * 1000, key="refresh")
 
 # 🔧 User inputs
-watchlist_input = st.text_input("Enter stock symbols separated by commas", "AAPL,TSLA,AMD")
+watchlist_input = st.text_input("Enter stock symbols separated by commas", "ASST,AAPL,TSLA,AMD")
 symbols = [s.strip().upper() for s in watchlist_input.split(",")]
 
 enable_sound = st.checkbox("🔊 Enable sound alert", value=False)
@@ -32,10 +32,10 @@ if enable_email:
         receiver_email = st.text_input("Recipient Email", type="default")
 
 # 📩 Email alert function
-def send_email_alert(stock, change):
+def send_email_alert(stock, message):
     try:
         msg = EmailMessage()
-        msg.set_content(f"{stock} is surging: {change:.2f}% up")
+        msg.set_content(message)
         msg["Subject"] = f"Stock Alert: {stock} 🚀"
         msg["From"] = email_address
         msg["To"] = receiver_email
@@ -73,27 +73,50 @@ for stock in symbols:
         continue
 
     try:
+        # Basic calculations
         open_price = float(df['Open'].iloc[0])
         latest_price = float(df['Close'].iloc[-1])
         percent_change = ((latest_price - open_price) / open_price) * 100
-
         average_volume = float(df['Volume'].mean())
         latest_volume = float(df['Volume'].iloc[-1])
+
+        # VWMA (20)
+        df['VWMA'] = (df['Close'] * df['Volume']).rolling(20).sum() / df['Volume'].rolling(20).sum()
+
+        # MACD
+        ema12 = df['Close'].ewm(span=12, adjust=False).mean()
+        ema26 = df['Close'].ewm(span=26, adjust=False).mean()
+        df['MACD'] = ema12 - ema26
+        df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
     except Exception as e:
         st.error(f"Data error for {stock}: {e}")
         continue
 
     col = st.container()
     col.subheader(f"📊 {stock}")
-    col.line_chart(df['Close'])
+    col.line_chart(df[['Close', 'VWMA']].dropna())
 
-    if percent_change > 1.5 and latest_volume > average_volume * 1.5:
-        col.success(f"🚀 {stock} is surging! {percent_change:.2f}% up")
-        col.info(f"📈 Volume spike: {latest_volume:,} vs average {int(average_volume):,}")
+    last_vwma = df['VWMA'].iloc[-1]
+    last_macd = df['MACD'].iloc[-1]
+    last_signal = df['Signal'].iloc[-1]
+
+    # Trigger alerts if all strategy conditions match
+    if (
+        latest_price > last_vwma and
+        last_macd > last_signal and
+        latest_volume > average_volume * 1.5
+    ):
+        col.success(f"🚨 {stock} Alert: Strong surge! 📈")
+        col.info(f"Price > VWMA ({latest_price:.2f} > {last_vwma:.2f})")
+        col.info(f"MACD Bullish Crossover ({last_macd:.2f} > {last_signal:.2f})")
+        col.info(f"Volume Surge: {latest_volume:,} vs avg {int(average_volume):,}")
 
         if enable_sound:
             play_sound()
         if enable_email and email_address and receiver_email and email_password:
-            send_email_alert(stock, percent_change)
+            send_email_alert(
+                stock,
+                f"{stock} is surging!\nPrice: {latest_price:.2f}\nVWMA: {last_vwma:.2f}\nMACD: {last_macd:.2f}\nSignal: {last_signal:.2f}\nVolume: {latest_volume:,}"
+            )
     else:
-        col.info(f"{stock} is calm. {percent_change:.2f}% change.")
+        col.info(f"{stock} status: {percent_change:.2f}% | Calm or building.")
