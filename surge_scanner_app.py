@@ -65,12 +65,13 @@ def fetch_data(ticker):
         return data
     except:
         return pd.DataFrame()
-
+    
 for stock in symbols:
     df = fetch_data(stock)
     if df.empty or 'Close' not in df.columns:
-    st.warning(f"{stock} skipped due to insufficient intraday data.")
-    continue
+        st.warning(f"{stock} skipped due to insufficient intraday data.")
+        continue
+  
     try:
         # Basic calculations
         open_price = float(df['Open'].iloc[0])
