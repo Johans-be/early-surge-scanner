@@ -70,34 +70,31 @@ for stock in symbols:
     df = fetch_data(stock)
     if df.empty or 'Close' not in df.columns:
         st.warning(f"{stock} skipped due to insufficient intraday data.")
-        continue
-  
-    try:
-        # Basic calculations
-        open_price = float(df['Open'].iloc[0])
-        latest_price = float(df['Close'].iloc[-1])
-        percent_change = ((latest_price - open_price) / open_price) * 100
-        average_volume = float(df['Volume'].mean())
-        latest_volume = float(df['Volume'].iloc[-1])
+    continue
 
-        # VWMA (20)
-        df['VWMA'] = (df['Close'] * df['Volume']).rolling(20).sum() / df['Volume'].rolling(20).sum()
+# Calculate VWMA and MACD
+    df['VWMA'] = calculate_vwma(df, 20)
+    df['MACD'], df['Signal'] = calculate_macd(df)
 
-        # MACD
-        ema12 = df['Close'].ewm(span=12, adjust=False).mean()
-        ema26 = df['Close'].ewm(span=26, adjust=False).mean()
-        df['MACD'] = ema12 - ema26
-        df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
-    except Exception as e:
-        st.error(f"Data error for {stock}: {e}")
-        continue
-
+# Display
     col = st.container()
     col.subheader(f"📊 {stock}")
+
+    latest_close = df['Close'].iloc[-1]
+    latest_volume = df['Volume'].iloc[-1]
+    average_volume = df['Volume'].mean()
+    percent_change = ((df['Close'].iloc[-1] - df['Close'].iloc[0]) / df['Close'].iloc[0]) * 100
+
+    col.metric("Price", f"${latest_close:.2f}")
+    col.metric("Volume", f"{int(latest_volume)}")
+    col.metric("Change", f"{percent_change:.2f}%")
+
+# Chart safely
     if 'Close' in df.columns and 'VWMA' in df.columns:
-    col.line_chart(df[['Close', 'VWMA']].dropna())
-else:
-    col.warning(f"⚠️ Not enough data to chart {stock}.")
+        col.line_chart(df[['Close', 'VWMA']].dropna())
+    else:
+        col.warning(f"⚠️ Not enough data to chart {stock}.")
+
 
 
     last_vwma = df['VWMA'].iloc[-1]
