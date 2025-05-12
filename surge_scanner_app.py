@@ -4,7 +4,6 @@ from streamlit_autorefresh import st_autorefresh
 import yfinance as yf
 import pandas as pd
 import datetime
-import time
 import os
 import smtplib
 from email.message import EmailMessage
@@ -31,11 +30,6 @@ if enable_email:
         email_address = st.text_input("Sender Email", type="default")
         email_password = st.text_input("App Password", type="password")
         receiver_email = st.text_input("Recipient Email", type="default")
-
-# 📅 Time window for surge scan
-now = datetime.datetime.now()
-start_time = (now - datetime.timedelta(minutes=60)).strftime('%Y-%m-%d %H:%M:%S')
-end_time = now.strftime('%Y-%m-%d %H:%M:%S')
 
 # 📩 Email alert function
 def send_email_alert(stock, change):
@@ -66,8 +60,11 @@ def play_sound():
 
 # 📈 Fetch & scan stocks
 def fetch_data(ticker):
-    data = yf.download(ticker, interval="1m", start=start_time, end=end_time, progress=False)
-    return data
+    try:
+        data = yf.download(ticker, interval="1m", period="1d", progress=False)
+        return data
+    except:
+        return pd.DataFrame()
 
 for stock in symbols:
     df = fetch_data(stock)
